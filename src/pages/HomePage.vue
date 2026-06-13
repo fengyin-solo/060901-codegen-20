@@ -3,12 +3,16 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRoom } from '@/composables/useRoom'
 import { useExpire } from '@/composables/useExpire'
+import { useMemorial } from '@/composables/useMemorial'
 import RoomCard from '@/components/RoomCard.vue'
-import { copyToClipboard } from '@/utils/helpers'
+import { copyToClipboard, formatDate } from '@/utils/helpers'
 
 const router = useRouter()
 const { activeRooms, createRoom, joinRoomByCode, error, loadRooms } = useRoom()
 const { checkAndCleanExpiredRooms } = useExpire()
+const { memorialAlbums, loadMemorialAlbums } = useMemorial()
+
+
 
 const showCreateModal = ref(false)
 const showJoinModal = ref(false)
@@ -20,8 +24,13 @@ const copySuccess = ref(false)
 
 onMounted(() => {
   loadRooms()
+  loadMemorialAlbums()
   checkAndCleanExpiredRooms()
 })
+
+const goToAlbum = (albumId: string) => {
+  router.push(`/album/${albumId}`)
+}
 
 const handleCreateRoom = () => {
   if (!roomName.value.trim() || !hostName.value.trim()) return
@@ -117,7 +126,76 @@ const closeModals = () => {
         <p class="text-gray-500 text-lg">还没有房间，创建一个开始聚会吧！</p>
       </div>
 
-      <div class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div v-if="memorialAlbums.length > 0" class="mb-8">
+        <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <span>📖</span> 聚会纪念册
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div 
+            v-for="album in memorialAlbums" 
+            :key="album.id"
+            class="bg-white rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all cursor-pointer transform hover:-translate-y-1 border border-amber-100"
+            @click="goToAlbum(album.id)"
+          >
+            <div class="flex justify-between items-start mb-3">
+              <h3 class="text-lg font-bold text-gray-800 truncate flex-1 mr-2">
+                {{ album.roomName }}
+              </h3>
+              <span class="px-2 py-1 rounded-full text-xs text-white font-medium bg-gradient-to-r from-amber-500 to-orange-500">
+                纪念册
+              </span>
+            </div>
+            
+            <div class="space-y-2 text-sm text-gray-600">
+              <div class="flex items-center gap-2">
+                <span class="text-gray-400">🎫</span>
+                <span class="font-mono bg-amber-50 px-2 py-0.5 rounded">
+                  {{ album.roomCode }}
+                </span>
+              </div>
+              
+              <div class="flex items-center gap-2">
+                <span class="text-gray-400">👥</span>
+                <span>{{ album.members.length }} 位成员</span>
+              </div>
+              
+              <div class="flex items-center gap-2">
+                <span class="text-gray-400">⭐</span>
+                <span>{{ album.featuredTopics.length }} 个精选话题</span>
+              </div>
+              
+              <div class="flex items-center gap-2">
+                <span class="text-gray-400">💬</span>
+                <span>{{ album.goldenQuotes.length }} 条金句</span>
+              </div>
+              
+              <div class="flex items-center gap-2">
+                <span class="text-gray-400">📅</span>
+                <span>{{ formatDate(album.endedAt) }}</span>
+              </div>
+            </div>
+            
+            <div class="mt-4 -space-x-2 flex">
+              <div 
+                v-for="member in album.members.slice(0, 5)" 
+                :key="member.id"
+                class="w-8 h-8 rounded-full bg-gradient-to-br from-amber-50 to-orange-50 flex items-center justify-center text-sm border-2 border-white"
+                :title="member.name"
+              >
+                {{ member.avatar }}
+              </div>
+              <div 
+                v-if="album.members.length > 5"
+                class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-xs border-2 border-white text-amber-600"
+              >
+                +{{ album.members.length - 5 }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div class="bg-white rounded-2xl p-6 shadow-md">
           <div class="text-3xl mb-3">📝</div>
           <h3 class="font-bold text-gray-800 mb-2">提前丢话题</h3>
@@ -137,6 +215,13 @@ const closeModals = () => {
           <h3 class="font-bold text-gray-800 mb-2">急救功能</h3>
           <p class="text-gray-600 text-sm">
             冷场了？点急救，从没翻过的话题里抽一个救场
+          </p>
+        </div>
+        <div class="bg-white rounded-2xl p-6 shadow-md border-2 border-amber-100">
+          <div class="text-3xl mb-3">📖</div>
+          <h3 class="font-bold text-gray-800 mb-2">聚会纪念册</h3>
+          <p class="text-gray-600 text-sm">
+            结束后自动生成时光页，收藏成员、精选话题和金句
           </p>
         </div>
       </div>

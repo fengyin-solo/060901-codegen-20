@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRoom } from '@/composables/useRoom'
 import { useExpire } from '@/composables/useExpire'
+import { useMemorial } from '@/composables/useMemorial'
 import { allTopics, getRandomQuestion } from '@/topics'
 import type { Topic, TopicType, TopicTemplate } from '@/types'
 import { TOPIC_COLORS, TOPIC_EMOJIS } from '@/types'
@@ -14,14 +15,24 @@ const route = useRoute()
 const router = useRouter()
 const { loadRoom, currentRoom, addTopic, removeTopic, startGame, error, loadRooms } = useRoom()
 const { isRoomExpired, getExpirationWarning } = useExpire()
+const { 
+  goldenQuotes, 
+  loadGoldenQuotes, 
+  addGoldenQuote, 
+  removeGoldenQuote,
+  toggleTopicFeatured
+} = useMemorial()
 
 const topicContent = ref('')
 const selectedType = ref<TopicType>('trouble')
 const isAnonymous = ref(false)
 const authorName = ref('')
 const showAddTopic = ref(false)
+const showAddQuote = ref(false)
 const copySuccess = ref(false)
 const selectedTemplate = ref<TopicTemplate | null>(null)
+const quoteContent = ref('')
+const quoteAuthor = ref('')
 
 const roomId = computed(() => route.params.id as string)
 
@@ -40,6 +51,8 @@ const canStartGame = computed(() =>
 const expirationWarning = computed(() => 
   currentRoom.value ? getExpirationWarning(currentRoom.value.expiresAt) : null
 )
+
+
 
 onMounted(() => {
   loadRooms()
@@ -61,7 +74,10 @@ onMounted(() => {
   
   if (currentRoom.value?.members.length) {
     authorName.value = currentRoom.value.members[0].name
+    quoteAuthor.value = currentRoom.value.members[0].name
   }
+  
+  loadGoldenQuotes(roomId.value)
 })
 
 const selectType = (type: TopicType) => {
@@ -100,6 +116,30 @@ const handleDeleteTopic = (topicId: string) => {
   }
 }
 
+const handleFeatureTopic = (topicId: string) => {
+  toggleTopicFeatured(roomId.value, topicId)
+  loadRoom(roomId.value)
+}
+
+const handleAddQuote = () => {
+  if (!quoteContent.value.trim()) return
+  
+  addGoldenQuote(
+    roomId.value,
+    quoteContent.value.trim(),
+    quoteAuthor.value.trim() || '匿名'
+  )
+  
+  quoteContent.value = ''
+  showAddQuote.value = false
+}
+
+const handleDeleteQuote = (quoteId: string) => {
+  if (confirm('确定要删除这条金句吗？')) {
+    removeGoldenQuote(quoteId)
+  }
+}
+
 const handleCopyCode = () => {
   if (currentRoom.value) {
     copyToClipboard(currentRoom.value.code).then(() => {
@@ -124,6 +164,10 @@ const goBack = () => {
 const goToGame = () => {
   router.push(`/room/${roomId.value}/game`)
 }
+
+const goToAlbum = () => {
+  router.push(`/room/${roomId.value}/album`)
+}
 </script>
 
 <template>
@@ -143,10 +187,11 @@ const goToGame = () => {
         
         <button 
           v-if="currentRoom.status === 'ended'"
-          class="px-4 py-2 bg-green-500 text-white rounded-full text-sm font-medium"
-          @click="goToGame"
+          class="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full text-sm font-medium flex items-center gap-1"
+          @click="goToAlbum"
         >
-          查看结果
+          <span>📖</span>
+          查看纪念册
         </button>
       </div>
 
@@ -238,6 +283,22 @@ const goToGame = () => {
             + 追加话题
           </button>
         </div>
+        
+        <div v-else-if="currentRoom.status === 'ended'" class="flex gap-3">
+          <button 
+            class="flex-1 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+            @click="goToAlbum"
+          >
+            <span class="text-xl">📖</span>
+            查看纪念册
+          </button>
+          <button 
+            class="px-6 py-3 bg-white border-2 border-dashed border-amber-300 text-amber-600 rounded-xl font-medium hover:bg-amber-50 transition-colors"
+            @click="showAddQuote = true"
+          >
+            + 记录金句
+          </button>
+        </div>
       </div>
 
       <div v-if="unflippedTopics.length > 0" class="mb-6">
@@ -258,13 +319,50 @@ const goToGame = () => {
       <div v-if="flippedTopics.length > 0">
         <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
           <span>✅</span> 已聊话题 ({{ flippedTopics.length }})
+          <span v-if="currentRoom.status !== 'preparing'" class="text-xs font-normal text-gray-500 ml-2">
+            (点击 ☆ 可标记为精选)
+          </span>
         </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 opacity-70">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 opacity-90">
           <TopicCard 
             v-for="topic in flippedTopics" 
             :key="topic.id"
             :topic="topic"
+            :can-feature="currentRoom.status !== 'preparing'"
+            @feature="handleFeatureTopic(topic.id)"
           />
+        </div>
+      </div>
+
+      <div v-if="goldenQuotes.length > 0" class="mt-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <span>💬</span> 现场金句 ({{ goldenQuotes.length }})
+        </h2>
+        <div class="space-y-3">
+          <div 
+            v-for="quote in goldenQuotes" 
+            :key="quote.id"
+            class="relative p-4 bg-gradient-to-br from-pink-50 to-purple-50 rounded-xl group"
+          >
+            <div class="absolute top-2 left-2 text-2xl opacity-20">❝</div>
+            <div class="relative z-10">
+              <p class="text-gray-800 font-medium pl-4 mb-2">
+                {{ quote.content }}
+              </p>
+              <div class="flex justify-between items-center text-xs">
+                <span class="text-gray-500">
+                  —— {{ quote.author }}
+                </span>
+                <button 
+                  v-if="currentRoom.status === 'ended'"
+                  class="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 p-1"
+                  @click="handleDeleteQuote(quote.id)"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -377,6 +475,58 @@ const goToGame = () => {
             @click="handleAddTopic"
           >
             丢进去！
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div 
+      v-if="showAddQuote"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      @click.self="showAddQuote = false"
+    >
+      <div class="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl">
+        <h2 class="text-xl font-bold text-gray-800 mb-4 text-center">
+          💬 记录一句金句
+        </h2>
+
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            金句内容
+          </label>
+          <textarea 
+            v-model="quoteContent"
+            placeholder="输入现场的精彩发言..."
+            rows="3"
+            class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"
+          ></textarea>
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            谁说的
+          </label>
+          <input 
+            v-model="quoteAuthor"
+            type="text" 
+            placeholder="输入名字"
+            class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"
+          />
+        </div>
+
+        <div class="flex gap-3">
+          <button 
+            class="flex-1 px-6 py-3 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+            @click="showAddQuote = false"
+          >
+            取消
+          </button>
+          <button 
+            class="flex-1 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            :disabled="!quoteContent.trim()"
+            @click="handleAddQuote"
+          >
+            记录下来！
           </button>
         </div>
       </div>

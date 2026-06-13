@@ -85,10 +85,14 @@ const handleShuffle = () => {
 }
 
 const handleEndGame = () => {
-  if (confirm('确定要结束游戏吗？')) {
-    endGame(roomId.value)
+  if (confirm('确定要结束游戏吗？结束后将自动生成聚会纪念册。')) {
+    const album = endGame(roomId.value)
     showEndConfirm.value = false
-    router.push(`/room/${roomId.value}`)
+    if (album) {
+      router.push(`/album/${album.id}`)
+    } else {
+      router.push(`/room/${roomId.value}`)
+    }
   }
 }
 

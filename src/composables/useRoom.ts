@@ -1,8 +1,9 @@
 import { ref, computed, onMounted } from 'vue'
-import type { Room, Topic, Member, TopicType } from '@/types'
+import type { Room, Topic, Member, TopicType, MemorialAlbum } from '@/types'
 import { TOPIC_COLORS } from '@/types'
 import { 
-  getRooms, getRoomById, getRoomByCode, saveRoom, deleteRoom 
+  getRooms, getRoomById, getRoomByCode, saveRoom, deleteRoom,
+  getGoldenQuotesByRoom, getMemorialAlbumByRoom, saveMemorialAlbum
 } from '@/utils/storage'
 import { 
   generateId, generateRoomCode, addDays, getRandomItem, shuffleArray 
@@ -106,6 +107,7 @@ export function useRoom() {
       author,
       isAnonymous,
       isFlipped: false,
+      isFeatured: false,
       createdAt: new Date().toISOString(),
       color: TOPIC_COLORS[type]
     }
@@ -156,19 +158,47 @@ export function useRoom() {
     return true
   }
 
-  const endGame = (roomId: string): boolean => {
+  const endGame = (roomId: string): MemorialAlbum | null => {
     const room = getRoomById(roomId)
-    if (!room) return false
+    if (!room) return null
 
     room.status = 'ended'
     saveRoom(room)
+    
+    const album = generateMemorialAlbum(roomId)
     
     if (currentRoom.value?.id === roomId) {
       currentRoom.value = room
     }
     loadRooms()
     
-    return true
+    return album
+  }
+
+  const generateMemorialAlbum = (roomId: string): MemorialAlbum | null => {
+    const room = getRoomById(roomId)
+    if (!room) return null
+
+    const existingAlbum = getMemorialAlbumByRoom(roomId)
+    const quotes = getGoldenQuotesByRoom(roomId)
+    const featuredTopics = room.topics.filter(t => t.isFeatured)
+    
+    const album: MemorialAlbum = {
+      id: existingAlbum?.id || generateId(),
+      roomId: room.id,
+      roomName: room.name,
+      roomCode: room.code,
+      createdAt: room.createdAt,
+      endedAt: new Date().toISOString(),
+      members: [...room.members],
+      featuredTopics: featuredTopics.length > 0 ? [...featuredTopics] : [...room.topics.filter(t => t.isFlipped).slice(0, 5)],
+      goldenQuotes: [...quotes],
+      totalTopics: room.topics.length,
+      totalTurns: room.currentTurn
+    }
+
+    saveMemorialAlbum(album)
+    return album
   }
 
   const resetGame = (roomId: string): boolean => {
@@ -220,6 +250,7 @@ export function useRoom() {
     removeTopic,
     startGame,
     endGame,
+    generateMemorialAlbum,
     resetGame,
     removeRoom,
   }

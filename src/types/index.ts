@@ -19,6 +19,7 @@ export interface Topic {
   author: string
   isAnonymous: boolean
   isFlipped: boolean
+  isFeatured: boolean
   createdAt: string
   color: string
 }
@@ -59,7 +60,39 @@ export const TOPIC_EMOJIS: Record<TopicType, string> = {
   silly: '🤪'
 }
 
+export const TOPIC_NAMES: Record<TopicType, string> = {
+  trouble: '烦心事',
+  music: '安利歌单',
+  gossip: '八卦爆料',
+  recommend: '求推荐',
+  deep: '深度聊聊',
+  silly: '沙雕话题'
+}
+
 export const AVATAR_EMOJIS = [
   '😀', '😎', '🥳', '🤗', '😇', '🤩', '😜', '🤭',
   '🐱', '🐶', '🐼', '🦊', '🐨', '🐯', '🦁', '🐸'
 ]
+
+export interface GoldenQuote {
+  id: string
+  roomId: string
+  content: string
+  author: string
+  createdAt: string
+  topicId?: string
+}
+
+export interface MemorialAlbum {
+  id: string
+  roomId: string
+  roomName: string
+  roomCode: string
+  createdAt: string
+  endedAt: string
+  members: Member[]
+  featuredTopics: Topic[]
+  goldenQuotes: GoldenQuote[]
+  totalTopics: number
+  totalTurns: number
+}

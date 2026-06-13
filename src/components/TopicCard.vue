@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import type { Topic } from '@/types'
-import { TOPIC_EMOJIS } from '@/types'
+import { TOPIC_EMOJIS, TOPIC_NAMES } from '@/types'
 import { formatDate } from '@/utils/helpers'
 
 defineProps<{
   topic: Topic
   canDelete?: boolean
+  canFeature?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'delete'): void
+  (e: 'feature'): void
 }>()
 </script>
 
@@ -17,11 +19,21 @@ const emit = defineEmits<{
   <div 
     class="topic-card bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all border-l-4 relative overflow-hidden group"
     :style="{ borderLeftColor: topic.color }"
+    :class="{ 'ring-2 ring-amber-400': topic.isFeatured }"
   >
     <div 
       class="absolute top-0 right-0 w-20 h-20 rounded-full -mr-8 -mt-8 opacity-10"
       :style="{ backgroundColor: topic.color }"
     ></div>
+    
+    <div 
+      v-if="topic.isFeatured"
+      class="absolute top-2 right-2 z-20"
+    >
+      <span class="bg-amber-400 text-white px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1">
+        ⭐ 精选
+      </span>
+    </div>
     
     <div class="relative z-10">
       <div class="flex justify-between items-start mb-2">
@@ -29,16 +41,27 @@ const emit = defineEmits<{
           class="px-2 py-1 rounded-lg text-xs font-medium text-white"
           :style="{ backgroundColor: topic.color }"
         >
-          {{ TOPIC_EMOJIS[topic.type] }} {{ topic.type }}
+          {{ TOPIC_EMOJIS[topic.type] }} {{ TOPIC_NAMES[topic.type] }}
         </span>
         
-        <button 
-          v-if="canDelete"
-          class="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 p-1"
-          @click.stop="emit('delete')"
-        >
-          ✕
-        </button>
+        <div class="flex items-center gap-1">
+          <button 
+            v-if="canFeature && topic.isFlipped"
+            class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded"
+            :class="topic.isFeatured ? 'text-amber-500 opacity-100' : 'text-gray-400 hover:text-amber-500'"
+            @click.stop="emit('feature')"
+            :title="topic.isFeatured ? '取消精选' : '标记为精选'"
+          >
+            {{ topic.isFeatured ? '⭐' : '☆' }}
+          </button>
+          <button 
+            v-if="canDelete"
+            class="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 p-1"
+            @click.stop="emit('delete')"
+          >
+            ✕
+          </button>
+        </div>
       </div>
       
       <p class="text-gray-800 font-medium mb-3 leading-relaxed">
