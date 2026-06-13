@@ -10,11 +10,23 @@ export function useGame() {
   const isShuffling = ref(false)
   const showTruthOrDare = ref(false)
   const currentPlayer = ref<string>('')
+  const activeRoomId = ref<string>('')
 
-  const getCurrentTopic = (room: Room): Topic | undefined => {
+  const getNextUnflippedTopic = (room: Room): Topic | undefined => {
     if (room.shuffledTopics.length === 0) return undefined
-    const topicId = room.shuffledTopics[room.currentTurn % room.shuffledTopics.length]
-    return room.topics.find(t => t.id === topicId)
+    const totalTopics = room.shuffledTopics.length
+    for (let offset = 0; offset < totalTopics; offset++) {
+      const index = (room.currentTurn + offset) % totalTopics
+      const topicId = room.shuffledTopics[index]
+      const topic = room.topics.find(t => t.id === topicId)
+      if (topic && !topic.isFlipped) {
+        if (offset > 0) {
+          room.currentTurn = room.currentTurn + offset
+        }
+        return topic
+      }
+    }
+    return undefined
   }
 
   const getCurrentPlayer = (room: Room): string => {
@@ -33,8 +45,9 @@ export function useGame() {
     }
 
     isFlipping.value = true
+    activeRoomId.value = roomId
     
-    const topic = getCurrentTopic(room)
+    const topic = getNextUnflippedTopic(room)
     if (topic) {
       topic.isFlipped = true
       currentTopic.value = topic
@@ -63,6 +76,7 @@ export function useGame() {
       const randomTopic = getRandomItem(unflippedTopics)
       randomTopic.isFlipped = true
       currentTopic.value = randomTopic
+      activeRoomId.value = roomId
       saveRoom(room)
       return randomTopic
     } else {
@@ -80,6 +94,7 @@ export function useGame() {
         color: '#FFD93D'
       }
       currentTopic.value = emergencyTopic
+      activeRoomId.value = roomId
       return emergencyTopic
     }
   }
@@ -89,6 +104,7 @@ export function useGame() {
     if (!room || room.status !== 'playing') return false
 
     isShuffling.value = true
+    activeRoomId.value = roomId
     
     room.topics.forEach(t => t.isFlipped = false)
     const shuffledIds = [...room.topics].sort(() => Math.random() - 0.5).map(t => t.id)
@@ -104,9 +120,14 @@ export function useGame() {
     return true
   }
 
+  const getRoomForProgress = (): Room | undefined => {
+    const roomId = currentTopic.value?.roomId || activeRoomId.value
+    if (!roomId) return undefined
+    return getRoomById(roomId)
+  }
+
   const progress = computed(() => {
-    if (!currentTopic.value) return { flipped: 0, total: 0, percentage: 0 }
-    const room = getRoomById(currentTopic.value.roomId)
+    const room = getRoomForProgress()
     if (!room) return { flipped: 0, total: 0, percentage: 0 }
     const flipped = room.topics.filter(t => t.isFlipped).length
     const total = room.topics.length
@@ -116,6 +137,10 @@ export function useGame() {
       percentage: total > 0 ? Math.round((flipped / total) * 100) : 0
     }
   })
+
+  const initProgress = (roomId: string) => {
+    activeRoomId.value = roomId
+  }
 
   const closeTruthOrDare = () => {
     showTruthOrDare.value = false
@@ -131,8 +156,9 @@ export function useGame() {
     flipNextCard,
     emergencyPick,
     shuffleCards,
-    getCurrentTopic,
+    getNextUnflippedTopic,
     getCurrentPlayer,
+    initProgress,
     closeTruthOrDare
   }
 }

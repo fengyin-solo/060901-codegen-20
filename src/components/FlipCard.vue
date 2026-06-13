@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import type { Topic } from '@/types'
-import { TOPIC_EMOJIS } from '@/types'
+import { TOPIC_EMOJIS, TOPIC_NAMES } from '@/types'
 
 const props = defineProps<{
   topic: Topic | null
@@ -55,10 +55,10 @@ watch(() => props.topic, () => {
         <div v-if="topic" class="text-center">
           <div class="text-6xl mb-4">{{ TOPIC_EMOJIS[topic.type] }}</div>
           <span class="inline-block px-3 py-1 bg-white/20 rounded-full text-white text-sm font-medium mb-4">
-            {{ topic.type }}
+            {{ TOPIC_EMOJIS[topic.type] }} {{ TOPIC_NAMES[topic.type] || topic.type }}
           </span>
           <p class="text-white text-xl font-bold leading-relaxed mb-4">
-            {{ topic.content }}
+            「{{ topic.content }}」
           </p>
           <p class="text-white/80 text-sm">
             —— {{ topic.isAnonymous ? '🎭 匿名朋友' : topic.author }}

@@ -22,6 +22,7 @@ const {
   emergencyPick, 
   shuffleCards,
   getCurrentPlayer,
+  initProgress,
   closeTruthOrDare
 } = useGame()
 const { isRoomExpired } = useExpire()
@@ -55,6 +56,8 @@ onMounted(() => {
     router.push('/')
     return
   }
+
+  initProgress(roomId.value)
 })
 
 const handleFlipCard = () => {
